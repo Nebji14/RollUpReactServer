@@ -20,7 +20,7 @@ export const register = async (req, res) => {
       password: hashedPassword,
     });
     await newUser.save();
-    res.status(200).json({ message: "Utilisateur enregistré" });
+    res.status(200).json({ message: "Inscription validée" });
   } catch (error) {
     console.log(error);
   }

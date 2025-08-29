@@ -6,8 +6,8 @@ const userSchema = new mongoose.Schema(
     pseudo: { type: String, required: true, unique: true },
     niveau: {
       type: String,
-      enum: ["débutant", "intermédiaire", "expert"],
-      default: "débutant",
+      enum: ["Débutant", "Intermédiaire", "Expert"],
+      default: "Débutant",
     },
     email: { type: String, required: true, unique: true },
     password: { type: String, required: true },
