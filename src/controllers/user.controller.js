@@ -7,6 +7,7 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
+// Génère un token JWT temporaire pour confirmer l'email
 const createTokenEmail = (email) => {
   return jwt.sign({ email }, process.env.SECRET_KEY, { expiresIn: "15min" });
 };
@@ -16,7 +17,7 @@ export const register = async (req, res) => {
   try {
     const { nom, pseudo, niveau, email, password } = req.body;
 
-    // Vérification si l'utilisateur existe déjà par email ou pseudo
+    // Vérifie si l'utilisateur existe déjà dans User ou TempUser
     const existingUserMail = await User.findOne({ email });
     const existingUserPseudo = await User.findOne({ pseudo });
     const existingTempUserMail = await TempUser.findOne({ email });
@@ -28,13 +29,14 @@ export const register = async (req, res) => {
       return res.status(400).json({ message: "Vérifiez vos email" });
     }
 
+    // Création d'un token temporaire et envoi de l'email de confirmation
     const token = createTokenEmail(email);
     await sendConfirmationEmail(email, token);
 
-    // Hachage du mot de passe pour sécuriser le stockage
+    // Hachage du mot de passe
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Création d'un nouvel utilisateur
+    // Création et sauvegarde d'un utilisateur temporaire
     const tempUser = new TempUser({
       nom,
       pseudo,
@@ -45,6 +47,7 @@ export const register = async (req, res) => {
     });
 
     await tempUser.save();
+
     res.status(200).json({
       message:
         "Un email de validation a été envoyé sur votre boite mail. (Pensez à verifier vos courriers indésirable)",
@@ -57,52 +60,65 @@ export const register = async (req, res) => {
 // Contrôleur de connexion
 export const login = async (req, res) => {
   const { pseudo, password } = req.body;
-  console.log(req.body);
 
   let user;
 
-  // Expression régulière pour détecter si l'identifiant est un email
+  // Détecte si l'identifiant est un email
   const emailRegex = /^[\w-.]+@([\w-]+\.)+[\w-]{2,4}$/;
 
   // Recherche de l'utilisateur par email ou pseudo
   if (emailRegex.test(pseudo)) {
     user = await User.findOne({ email: pseudo });
-    console.log(user);
   } else {
     user = await User.findOne({ pseudo: pseudo });
-    console.log(user);
   }
 
-  // Vérification de l'existence de l'utilisateur
+  // Vérifie l'existence de l'utilisateur
   if (!user) {
     return res
       .status(400)
       .json({ message: "Email ou nom d'utilisateur incorrect" });
   }
 
-  // Vérification du mot de passe via bcrypt
+  // Vérifie le mot de passe avec bcrypt
   const isPasswordValid = await bcrypt.compare(password, user.password);
   if (!isPasswordValid) {
     return res.status(400).json({ message: "Mot de passe incorrect" });
   }
 
-  // Authentification réussie
+  // Génère un JWT pour l'utilisateur connecté
+  const token = jwt.sign({}, process.env.SECRET_KEY, {
+    subject: user._id.toString(),
+    expiresIn: "7d",
+    algorithm: "HS256",
+  });
+
+  // Stocke le token en cookie HTTP-only
+  res.cookie("token", token, {
+    httpOnly: true,
+    secure: false,
+    maxAge: 7 * 24 * 60 * 60 * 1000,
+  });
+
   res.status(200).json({ user, message: "Connexion réussie" });
 };
 
+// Vérification du mail via token
 export const verifyMail = async (req, res) => {
   const { token } = req.params;
-  console.log(token);
 
   try {
+    // Décodage du token pour retrouver l'email
     const decoded = jwt.verify(token, process.env.SECRET_KEY);
+
+    // Recherche de l'utilisateur temporaire correspondant au token
     const tempUser = await TempUser.findOne({ email: decoded.email, token });
-    console.log(tempUser);
 
     if (!tempUser) {
       return res.redirect(`${process.env.CLIENT_URL}/?message=error`);
     }
 
+    // Création d'un utilisateur définitif à partir du TempUser
     const newUser = new User({
       nom: tempUser.nom,
       pseudo: tempUser.pseudo,
@@ -113,11 +129,37 @@ export const verifyMail = async (req, res) => {
 
     await newUser.save();
     await TempUser.deleteOne({ email: tempUser.email });
+
     res.redirect(`${process.env.CLIENT_URL}/?message=success`);
   } catch (error) {
     console.log(error);
     if (error.name === "TokenExpiredError") {
       return res.redirect(`${process.env.CLIENT_URL}/?message=error`);
     }
+  }
+};
+
+// Récupération de l'utilisateur courant via token
+export const currentUser = async (req, res) => {
+  const { token } = req.cookies;
+
+  if (token) {
+    try {
+      // Décodage du token pour obtenir l'ID de l'utilisateur
+      const decodedToken = jwt.verify(token, process.env.SECRET_KEY);
+
+      // Récupération de l'utilisateur via son ID
+      const currentUser = await User.findById(decodedToken.sub);
+
+      if (currentUser) {
+        res.status(200).json(currentUser);
+      } else {
+        res.status(400).json(null);
+      }
+    } catch (error) {
+      res.status(400).json(null);
+    }
+  } else {
+    res.status(400).json(null);
   }
 };
