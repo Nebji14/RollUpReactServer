@@ -27,3 +27,26 @@ export const sendConfirmationEmail = async (email, token) => {
   // Envoi de l'email via le transporteur configuré
   await transporter.sendMail(mailOption);
 };
+
+//Reset du mot de passe
+export const sendResetPasswordEmail = async (email, token) => {
+  try {
+    const resetUrl = `${process.env.CLIENT_URL}/ChangePass?token=${token}`;
+    console.log("Lien reset généré :", resetUrl);
+    const mailOptions = {
+      from: process.env.EMAIL_USER,
+      to: email,
+      subject: "Réinitialisation de mot de passe",
+      html: `
+        <p>Bonjour,</p>
+        <p>Tu as demandé à réinitialiser ton mot de passe.</p>
+        <p><a href="${resetUrl}">Changer mon mot de passe</a></p>
+        <p>⚠️ Ce lien est valide pendant 15 minutes.</p>
+      `,
+    };
+    await transporter.sendMail(mailOptions);
+  } catch (error) {
+    console.log("Erreur lors de l'envoi de l'email reset :", error);
+    throw error;
+  }
+};

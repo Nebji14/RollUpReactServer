@@ -2,7 +2,10 @@ import bcrypt from "bcrypt";
 import User from "../models/user.schema.js";
 import TempUser from "../models/tempuser.schema.js";
 import jwt from "jsonwebtoken";
-import { sendConfirmationEmail } from "../email/email.js";
+import {
+  sendConfirmationEmail,
+  sendResetPasswordEmail,
+} from "../email/email.js";
 import dotenv from "dotenv";
 
 dotenv.config();
@@ -164,6 +167,7 @@ export const currentUser = async (req, res) => {
   }
 };
 
+//Deconnexion de l'utilisateur (supprime le token)
 export const logoutUser = async (req, res) => {
   res.clearCookie("token", {
     httpOnly: true,
@@ -171,4 +175,64 @@ export const logoutUser = async (req, res) => {
     // sameSite: "None",
   });
   res.status(200).json({ message: "Déconnexion réussie" });
+};
+
+// Token pour reset password
+const createTokenReset = (email) => {
+  return jwt.sign({ email }, process.env.SECRET_KEY, { expiresIn: "15m" });
+};
+
+//  Forgot Password -> envoie du mail
+export const forgotPassword = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    // Vérifier si l'utilisateur existe
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(200).json({
+        message: "Si un compte existe pour cet email, un lien a été envoyé.",
+      });
+    }
+
+    const token = createTokenReset(email);
+    await sendResetPasswordEmail(email, token);
+
+    res.status(200).json({
+      message: "Si un compte existe pour cet email, un lien a été envoyé.",
+    });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ message: "Erreur serveur" });
+  }
+};
+
+//  Reset Password -> change directement le mot de passe
+export const resetPassword = async (req, res) => {
+  try {
+    const { token, password } = req.body;
+
+    // Vérifie le token
+    let decoded;
+    try {
+      decoded = jwt.verify(token, process.env.SECRET_KEY);
+    } catch (err) {
+      return res.status(400).json({ message: "Lien invalide ou expiré" });
+    }
+
+    // Trouve l’utilisateur et met à jour son mot de passe
+    const user = await User.findOne({ email: decoded.email });
+    if (!user) {
+      return res.status(400).json({ message: "Utilisateur introuvable" });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 8);
+    user.password = hashedPassword;
+    await user.save();
+
+    res.status(200).json({ message: "Mot de passe mis à jour avec succès" });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ message: "Erreur serveur" });
+  }
 };
