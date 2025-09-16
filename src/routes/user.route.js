@@ -8,21 +8,20 @@ import {
   forgotPassword,
   resetPassword,
 } from "../controllers/user.controller.js";
+import { protect } from "../middlewares/authMiddleware.js";
+//  middleware
 
 const router = express.Router();
 
-router.post("/", register);
-
-router.post("/login", login);
-
+// Routes "publique"
+router.post("/", register); // inscription
+router.post("/login", login); // connexion
 router.get("/verifyMail/:token", verifyMail);
-
-router.get("/current", currentUser);
-
-router.delete("/deleteToken", logoutUser);
-
 router.post("/forgot-password", forgotPassword);
-
 router.post("/reset-password", resetPassword);
+
+// Routes protégées
+router.get("/current", protect, currentUser);
+router.delete("/deleteToken", protect, logoutUser);
 
 export default router;
