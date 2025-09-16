@@ -1,4 +1,4 @@
-import Table from "../models/Table.js";
+import Table from "../models/Table.schema.js";
 
 //Lister toutes les tables
 export const getAllTables = async (req, res) => {

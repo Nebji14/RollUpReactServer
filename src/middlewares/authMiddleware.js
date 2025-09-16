@@ -2,7 +2,7 @@ import jwt from "jsonwebtoken";
 import User from "../models/user.schema.js";
 
 export const protect = async (req, res, next) => {
-  console.log("test middleware");
+  // console.log("test middleware");
 
   // récupération du token attaché à la requête HTTP entrante
   const { token } = req.cookies;
