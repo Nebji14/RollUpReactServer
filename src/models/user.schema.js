@@ -1,4 +1,4 @@
-import mongoose from "mongoose";
+import mongoose, { Schema } from "mongoose";
 
 // Définition du schéma utilisateur avec Mongoose
 const userSchema = new mongoose.Schema(

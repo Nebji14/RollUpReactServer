@@ -1,4 +1,4 @@
-import mongoose from "mongoose";
+import mongoose, { Schema } from "mongoose";
 
 const tableSchema = new mongoose.Schema(
   {
@@ -36,9 +36,10 @@ const tableSchema = new mongoose.Schema(
       enum: [1, 2, 3, 4, 5, 6, 7],
       required: true,
     },
-
+    user: { type: Schema.Types.ObjectId, ref: "User", required: true },
     synopsis: { type: String, required: true, minLength: 25 },
   },
+
   { timestamps: true }
 );
 
